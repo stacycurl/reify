@@ -1,23 +1,15 @@
-package reify.internal.util
+package symmetric
 
 import scala.language.implicitConversions
-
-import reify.internal.prelude._
 
 import scala.reflect.ClassTag
 import scala.util.Try
 
-trait Extractor[A, B] {
+
+trait Extractor[-A, +B] {
   def unapply(a: A): Option[B]
 
   def all: Extractor[List[A], List[B]] = Extractor.all(this)
-
-  final def tap(
-    before: A => Unit = _ => {},
-    after: Option[B] => Unit = _ => {},
-    around: A => Option[B] => Unit = _ => _ => {}
-  ): Extractor[A, B] =
-    Extractor.Tapped(this, before, after, around)
 
   final def when(p: B => Boolean): Extractor[A, B] =
     Extractor.When(this, p)
@@ -31,17 +23,49 @@ trait Extractor[A, B] {
   final def andThen[C](bc: Extractor[B, C]): Extractor[A, C] =
     Extractor.AndThen(this, bc)
 
-  final def orElse(rhs: Extractor[A, B]): Extractor[A, B] =
-    Extractor.OrElse(this, rhs)
-
   final def contramap[Z](za: Z => A): Extractor[Z, B] =
     Extractor.Contramapped(this, za)
 }
 
 object Extractor {
+  implicit class ExtractorSyntax[A, B](private val self: Extractor[A, B]) extends AnyVal {
+    def log(name: String): Extractor[A, B] = tap(
+      around = a => optB => println(s"$name: $a => $optB")
+    )
+
+    def tap(
+      before: A => Unit = _ => {},
+      after: Option[B] => Unit = _ => {},
+      around: A => Option[B] => Unit = _ => _ => {}
+    ): Extractor[A, B] =
+      Tapped(self, before, after, around)
+
+    def flatMap[C](f: B => Extractor[A, C]): Extractor[A, C] =
+      FlatMapped(self, f)
+
+    def orElse(rhs: Extractor[A, B]): Extractor[A, B] =
+      OrElse(self, rhs)
+
+    def toOption: Extractor[Option[A], Option[B]] =
+      from[Option[A]].property(optA => optA.flatMap(self.unapply))
+  }
+
+  implicit class ExtractorFromListSyntax[E, B](private val self: Extractor[List[E], B]) extends AnyVal {
+    def ^:[A](head: Extractor[E, A]): Extractor[List[E], (A, B)] = Cons[A, B, E](head, self)
+  }
+
+  private case class Cons[A, B, E](head: Extractor[E, A], tail: Extractor[List[E], B]) extends Extractor[List[E], (A, B)] {
+    def unapply(es: List[E]): Option[(A, B)] = PartialFunction.condOpt(es) {
+      case head(a) :: tail(b) => (a, b)
+    }
+  }
+
   implicit def fromFn[A, B](fn: A => Option[B]): Extractor[A, B] =
     from[A].apply(fn)
 
+  def identity[A]: Extractor[A, A] =
+    from[A].property(Predef.identity[A])
+  
   def from[A]: From[A] = new From[A]
 
   def fromMap[K, V](map: Map[K, V]): Extractor[K, V] = from[K](map.get)
@@ -57,6 +81,9 @@ object Extractor {
 
     optBs
   })
+
+  def defer[A, B](value: => Extractor[A, B]): Extractor[A, B] =
+    new Extractor.Deferred(value)
 
   val Boolean: Extractor[String, Boolean] = from[String].attempt(_.toBoolean)
   val Int: Extractor[String, Int] = from[String].attempt(_.toInt)
@@ -186,8 +213,18 @@ object Extractor {
     def unapply(a: A): Option[C] = ab.unapply(a).map(bc)
   }
 
+  private case class FlatMapped[A, B, C](ab: Extractor[A, B], bc: B => Extractor[A, C]) extends Extractor[A, C] {
+    def unapply(a: A): Option[C] = ab.unapply(a).flatMap(b => bc(b).unapply(a))
+  }
+
   private case class Contramapped[Z, A, B](ab: Extractor[A, B], za: Z => A) extends Extractor[Z, B] {
     def unapply(z: Z): Option[B] = ab.unapply(za(z))
+  }
+
+  private class Deferred[A, B](deferred0: => Extractor[A, B]) extends Extractor[A, B] {
+    def unapply(a: A): Option[B] = deferred.unapply(a)
+
+    private lazy val deferred: Extractor[A, B] = deferred0
   }
 
   private case class Tapped[A, B](
@@ -196,7 +233,15 @@ object Extractor {
     after: Option[B] => Unit,
     around: A => Option[B] => Unit
   ) extends Extractor[A, B] {
-    def unapply(a: A): Option[B] = ab.unapply(a.tap(before)).tap(after, around(a))
+    def unapply(a: A): Option[B] = {
+      before(a)
+
+      val result = ab.unapply(a)
+      after(result)
+      around(a)(result)
+      
+      result
+    }
   }
 
   sealed trait Subtract[A] {
@@ -220,3 +265,6 @@ object Extractor {
     }
   }
 }
+
+
+

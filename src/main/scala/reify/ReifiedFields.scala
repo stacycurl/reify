@@ -1,8 +1,10 @@
 package reify
 
 import reify.Reified.RPrimitive
-import reify.internal.util.{Extractor, Fields}
-import scalaz.deriving
+import reify.internal.util.Fields
+import scalaz.annotation.deriving
+import symmetric.Extractor
+
 
 // TODO: Track provenance of field via it's identityHashCode
 //       Use provenance as a means of simplifying a series of replacements
@@ -10,15 +12,12 @@ import scalaz.deriving
 //       It will be necessary to expand which diff constitutes a failed test, if a test references a field that has changed, it
 //         should report the change too.
 object ReifiedFields {
-  def create(value: Any): ReifiedFields =
-    Fields.create(value).reify(value)
+  def create(value: Any): ReifiedFields = Fields.create(value).reify(value)
 }
 
 @deriving(Reify)
 case class ReifiedFields(fields: Map[Reified, String]) {
-  def reify[A: Reify](value: A): Reified = {
-    replace(Reify.reify(value))
-  }
+  def reify[A: Reify](value: A): Reified = replace(Reify.reify(value))
 
   def replace[A: Reify](reified: Reified): Reified = {
     val Fields = Extractor.from[Reified](fields.get)
@@ -30,7 +29,7 @@ case class ReifiedFields(fields: Map[Reified, String]) {
     result
   }
 
-  def namesShorterThanDefinitions = ReifiedFields(fields.filter {
-    case (reified, name) => Formatter.Unindented.format(reified).length > name.length
+  def namesShorterThanDefinitions: ReifiedFields = ReifiedFields(fields.filter {
+    case (reified, name) => Formatter.Unindented.lengthOf(reified) > name.length
   })
 }

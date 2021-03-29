@@ -2,21 +2,27 @@ package reify
 
 import scala.language.dynamics
 
-import reify.Token.Infix
+import reify.Token.{Arguments, Infix}
 import reify.internal.prelude._
-import reify.internal.util.Extractor
-import scalaz.deriving
+import scalaz.annotation.deriving
+import symmetric.Extractor
 
 import scala.util.parsing.combinator.RegexParsers
+
 
 @deriving(Reify)
 sealed trait Token extends Dynamic {
   def applyDynamic(separator: String)(rhs: Token): Token = Infix(this, s" $separator ", rhs)
 
-  def method(name: String, args: Token*): Token = Token.Method(this, name, args.toList)
+  def method(name: String, args: Token*): Token = Token.Method(this, name, Arguments(args.toList))
 
   def camelCase: Token
   def kebabCase: Token
+  
+  def isEmpty: Boolean = this match {
+    case Arguments(values) => values.isEmpty
+    case other             => false
+  }
 }
 
 object Token {
@@ -26,12 +32,18 @@ object Token {
 
   def primitive(value: String): Token = Primitive(value)
 
-  def compound(name: String, tokens: List[Token]): Token = Compound(name, tokens)
+  def compound(name: String, tokens: List[Token]): Token = Compound(name, Arguments(tokens))
 
   def infix(lhs: Token, separator: String, rhs: Token): Token = Infix(lhs, separator, rhs)
 
   @deriving(Reify)
   case class Primitive(value: String) extends Token { // Rename to Literal
+    def camelCase: Token = this
+    def kebabCase: Token = this
+  }
+
+  @deriving(Reify)
+  case class TString(value: String) extends Token {
     def camelCase: Token = this
     def kebabCase: Token = this
   }
@@ -43,41 +55,37 @@ object Token {
   }
 
   @deriving(Reify)
-  case class TString(value: String) extends Token {
-    def camelCase: Token = this
-    def kebabCase: Token = this
-  }
-
-  @deriving(Reify)
   case class Infix(lhs: Token, separator: String, rhs: Token) extends Token {
     def camelCase: Token = Infix(lhs.camelCase, separator, rhs.camelCase)
     def kebabCase: Token = Infix(lhs.kebabCase, separator, rhs.kebabCase)
   }
 
   @deriving(Reify)
-  case class Compound(name: String, tokens: List[Token]) extends Token {
-    def camelCase: Token = Token.Compound(name.camelCase, tokens.map(_.camelCase))
-    def kebabCase: Token = Token.Compound(name.kebabCase, tokens.map(_.kebabCase))
+  case class Compound(name: String, arguments: Token) extends Token {
+    def camelCase: Token = Token.Compound(name.camelCase, arguments.camelCase)
+    def kebabCase: Token = Token.Compound(name.kebabCase, arguments.kebabCase)
+  }
+
+  @deriving(Reify)
+  case class Function(name: String, arguments: Token) extends Token {
+    def camelCase: Token = Function(name.camelCase.uncapitalise, arguments.camelCase)
+    def kebabCase: Token = Function(name.kebabCase, arguments.kebabCase)
+    
+    def compound: Compound = Compound(name, arguments)
   }
 
   @deriving(Reify)
   case class Arguments(values: List[Token]) extends Token {
-    def isEmpty: Boolean = values.isEmpty
-
-    def camelCase: Token = Arguments(values.map(_.camelCase))
-    def kebabCase: Token = Arguments(values.map(_.kebabCase))
+    def camelCase: Arguments = Arguments(values.map(_.camelCase))
+    def kebabCase: Arguments = Arguments(values.map(_.kebabCase))
   }
 
   @deriving(Reify)
-  case class Method(target: Token, name: String, parameters: List[Token]) extends Token {
-    def camelCase: Token = {
-      val camelCaseName = name.camelCase
-      val uncapitalisedCamelCaseName = camelCaseName.charAt(0).toLower + camelCaseName.substring(1)
+  case class Method(target: Token, name: String, arguments: Token) extends Token {
+    def camelCase: Token = Method(target.camelCase, name.camelCase.uncapitalise, arguments.camelCase)
+    def kebabCase: Token = Method(target.kebabCase, name.kebabCase, arguments.kebabCase)
 
-      Method(target.camelCase, uncapitalisedCamelCaseName, parameters.map(_.camelCase))
-    }
-
-    def kebabCase: Token = Method(target.kebabCase, name.kebabCase, parameters.map(_.kebabCase))
+    def function: Function = Function(name, arguments)
   }
 
   def parse(value: String): Either[String, Token] = new TokenParser().parse(value)
@@ -89,14 +97,14 @@ object Token {
       case Error(msg, _)       => Left("ERROR: " + msg)
     }
 
-    def token: Parser[Token] = (infix | compound | tstring | bool | num | identifier) ~ rep(((".") ~> suffix)) ^^ {
+    def token: Parser[Token] = (infix | compound | tstring | bool | num | identifier) ~ rep(((".") ~> function)) ^^ {
       case target ~ invocationChain => invocationChain.foldLeft(target) {
-        case (acc, (name, args)) => Method(acc, name, args)
+        case (acc, Function(name, args)) => Method(acc, name, args)
       }
     }
 
-    private def suffix: Parser[(String, List[Token])] = primitive ~ ("(" ~> repsep(token, comma) <~ ")") ^^ {
-      case Primitive(method) ~ args => (method, args)
+    private def function: Parser[Function] = primitive ~ ("(" ~> repsep(token, comma) <~ ")") ^^ {
+      case Primitive(name) ~ args => Function(name, Arguments(args))
     }
 
     private def infix: Parser[Infix] = primitive ~ (rep(" ") ~> operator <~ rep(" ")) ~ primitive ^^ {
@@ -105,6 +113,8 @@ object Token {
 
     private def operator: Parser[String] = """[:=->]+""".r
 
+    private def _new: Parser[String] = """new""".r
+    
     private def primitive: Parser[Primitive] = """[a-zA-Z0-9\-]+""".r ^^ { Primitive(_) }
     private def identifier: Parser[Identifier] = """[a-zA-Z0-9\-]+""".r ^^ { Identifier(_) }
 
@@ -118,16 +128,11 @@ object Token {
       doubleQuoted | tripleQuotes
     }
 
-    private def compound: Parser[Compound] = {
-      identifier ~ ("(" ~> repsep(token, comma) <~ ")") ^^ {
-        case Token.Identifier(name) ~ args => Compound(name, args)
-      }
+    private def compound: Parser[Compound] = _new.? ~ identifier ~ ("(" ~> repsep(token, comma) <~ ")") ^^ {
+      case None    ~ Token.Identifier(name) ~ args => Compound(name, Arguments(args))
+      case Some(_) ~ Token.Identifier(name) ~ args => Compound(s"new $name", Arguments(args))
     }
 
-    private val comma: Parser[Unit] = ignored(",")
-    private val doubleQuote: Parser[Unit] = ignored("\"")
-    private val tripleQuote: Parser[Unit] = ignored("\"\"\"")
-
-    private def ignored(value: String): Parser[Unit] = value ^^ (_ => Unit)
+    private val List(comma, doubleQuote, tripleQuote) = List(",", "\"", "\"\"\"").map(value => value ^^ (_ => ()))
   }
 }

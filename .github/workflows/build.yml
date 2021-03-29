@@ -1,0 +1,24 @@
+name: Release
+on:
+  push:
+    branches: ["*"]
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2.3.4
+        with:
+          fetch-depth: 0
+      - run: echo "git_range=$(echo ${TRAVIS_COMMIT_RANGE:-HEAD} | sed -e 's/\.\.\./../g')" >> $GITHUB_ENV
+      - run: echo "changes=$(git diff-tree -r ${{ env.git_range }} | cut -f2 | tr '\n' ' ')" >> $GITHUB_ENV
+      - uses: olafurpg/setup-scala@v10
+      - run: sbt clean test
+      - if: contains(env.changes, 'version.sbt')
+        uses: blended-zio/setup-gpg@v3
+      - if: contains(env.changes, 'version.sbt')
+        run: sbt ci-publish
+        env:
+          PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
+          PGP_SECRET: ${{ secrets.PGP_SECRET }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}

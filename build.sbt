@@ -1,29 +1,46 @@
-import sbt.Keys.resolvers
+import sbt.compilerPlugin
+
 
 name := "reify"
 
-version := "0.1"
+scalaVersion := "2.12.12"
 
-scalaVersion := "2.12.8"
+val derivingVersion = "3.0.0-M2"
 
-val derivingVersion = "1.0.0"
-
-val derivingVersionDependencies = Seq(
-  // the @deriving and @xderiving plugin and macro
-  "org.scalaz" %% "deriving-macro" % derivingVersion,
-  compilerPlugin("org.scalaz" %% "deriving-plugin" % derivingVersion),
-  // the scalaz-deriving Altz / Decidablez / Deriving API and macros
-  "org.scalaz" %% "scalaz-deriving" % derivingVersion,
-  // instances for Show and Arbitrary
-  "org.scalaz" %% "scalaz-deriving-magnolia" % derivingVersion
-)
-
-lazy val reify = (project in file(".")
+lazy val reify: Project = (project in file(".")
   settings (resolvers ++= Seq(
-    "jcenter" at "http://jcenter.bintray.com"
+    Resolver.sonatypeRepo("releases")
   ))
 
   settings(libraryDependencies ++= Seq(
-    "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2"
-  ) ++ derivingVersionDependencies)
+    "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2",
+    // the @deriving and @xderiving plugin and macro
+    "org.scalaz" %% "deriving-macro" % derivingVersion,
+    "org.scalaz" %% "scalaz-deriving-magnolia" % derivingVersion,
+    compilerPlugin("org.scalaz" %% "deriving-plugin" % derivingVersion cross CrossVersion.full),
+  ))
 )
+
+//lazy val reifySpec = (project in file("reifySpec")
+//  settings(libraryDependencies ++= Seq(
+//    "org.scalactic" %% "scalactic" % "3.0.8"  % "test",
+//    "org.scalatest" %% "scalatest" % "3.0.8"  % "test",
+//    "org.scalameta" %% "scalameta" % "4.2.3"  % "test"
+//  ) ++ derivingVersionDependencies)
+//
+//  dependsOn(reify, echoSpec)
+//)
+//
+val jetty = "9.4.19.v20190610"
+
+
+inThisBuild(List(
+  organization := "com.github.stacycurl",
+  homepage     := Some(url("https://github.com/stacycurl/reify")),
+  licenses     := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
+  developers   := List(
+    Developer("stacycurl", "Stacy Curl", "stacy.curl@gmail.com", url("https://github.com/stacycurl"))
+  ),
+  usePgpKeyHex("pimpathon ci"),
+  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.8")
+))
