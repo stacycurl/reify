@@ -2,7 +2,11 @@ package symmetric
 
 import scala.language.postfixOps
 
+import reify.internal.prelude.RListSyntax
+import reify.{Reified, Reify}
 import symmetric.{SmartJoiner => <#>, Symmetric => <->}
+
+import scala.reflect.ClassTag
 
 
 trait Symmetric[A, B] {
@@ -11,7 +15,24 @@ trait Symmetric[A, B] {
 
   def to(a: A): Option[B]
   def from(b: B): Option[A]
-
+  
+  final def lhsTo[Base: ClassTag](implicit CT: ClassTag[A]): Base <-> B = {
+    val IsA:    Extractor[Any, A]    = Extractor.isA[A]
+    val IsBase: Extractor[Any, Base] = Extractor.isA[Base]
+    
+    val baseOptB: Base => Option[B] = {
+      case IsA(a) => to(a)
+      case _      => None
+    } 
+    
+    val bOptBase: B => Option[Base] = b => from(b) match {
+      case Some(IsA(IsBase(base))) => Some(base) // Doing this instead of 'Base :> A' to make calling easier
+      case _                       => None
+    }
+    
+    Symmetric.fromOpt[Base, B](baseOptB).toOpt(bOptBase)
+  }
+  
   final def flip: B <-> A = Symmetric.Flipped(this)
 
   final def |||(other: A <-> B): A <-> B = Symmetric.Or(this, other)
@@ -82,6 +103,21 @@ object Symmetric {
   case class iso[A, B](f: A => B) {
     def to(g: B => A): A <-> B = FromIso[A, B](f, g)
   }
+  
+  def fromReify[A](implicit A: Reify[A]): A <-> Reified =
+    Symmetric.fromOpt[A, Reified](a => Some(A.reify(a))).toOpt(A.reflect)
+  
+  def forSealedTrait[A, B](abs: (A <-> B)*): A <-> B = {
+    val tos:   List[A => Option[B]] = abs.toList.map(ab => ab.to(_))
+    val froms: List[B => Option[A]] = abs.toList.map(ab => ab.from(_))
+     
+    Symmetric.fromOpt[A, B](a => {
+      tos.flatMapFirst(f => f(a))
+    }).toOpt(b => {
+      froms.flatMapFirst(f => f(b))
+    })
+  }
+  
 
   private case class FromIso[A, B](f: A => B, g: B => A) extends (A <-> B) {
     def to(a: A):   Option[B] = Some(f(a))

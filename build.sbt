@@ -15,8 +15,10 @@ lazy val reify: Project = (project in file(".")
   settings(libraryDependencies ++= Seq(
     "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2",
     // the @deriving and @xderiving plugin and macro
-    "org.scalaz" %% "deriving-macro" % derivingVersion,
-    "org.scalaz" %% "scalaz-deriving-magnolia" % derivingVersion,
+    "org.scalaz"    %% "deriving-macro"              % derivingVersion,
+    "org.scalaz"    %% "scalaz-deriving-magnolia"    % derivingVersion,
+    "org.scalactic" %% "scalactic"                   % "3.0.8" % "test",
+    "org.scalatest" %% "scalatest"                   % "3.0.8" % "test",  
     compilerPlugin("org.scalaz" %% "deriving-plugin" % derivingVersion cross CrossVersion.full),
   ))
 )

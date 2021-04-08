@@ -189,12 +189,11 @@ object Extractor {
   }
 
   private class FromClassTag[A: ClassTag] extends Extractor[Any, A] {
-
-    def unapply(value: Any): Option[A] = {
-      if (value.getClass == implicitly[ClassTag[A]].runtimeClass) {
-        Some(value.asInstanceOf[A])
-      } else None
+    def unapply(value: Any): Option[A] = if (!runtimeClass.isAssignableFrom(value.getClass)) None else {
+      Some(value.asInstanceOf[A])
     }
+    
+    private val runtimeClass: Class[_] = implicitly[ClassTag[A]].runtimeClass
   }
 
   private case class AndThen[A, B, C](ab: Extractor[A, B], bc: Extractor[B, C]) extends Extractor[A, C] {

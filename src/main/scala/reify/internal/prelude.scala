@@ -7,6 +7,7 @@ import reify.{Reified, Reify}
 import symmetric.Extractor.ExtractorSyntax
 import symmetric.{Extractor, Symmetric}
 
+import scala.reflect.ClassTag
 import scala.util.matching.Regex
 import scala.util.{Properties, Try}
 
@@ -88,12 +89,12 @@ object prelude {
     }
   }
   
-  def time[A](name: String)(f: => A): A = {
-    val (value, elapsed) = timeOf(name)(f)
-    
-    println(s"$name: $elapsed")
-    
-    value
+  implicit class RFunctionSyntax[A, B](private val self: A => B) {
+    def contramapToBase[Base >: A](implicit CT: ClassTag[A]): PartialFunction[Base, B] = {
+      val IsA: Extractor[Any, A] = Extractor.isA[A]
+      
+      { case IsA(a) => self(a) }
+    }
   }
   
   implicit class RPropertiesSyntax(private val self: JProperties) {
@@ -101,6 +102,14 @@ object prelude {
       stream <- classPathInputStreams(relativeFileName)
       _      <- Try(props.load(stream)).toOption
     } yield stream.close())
+  }
+  
+  def time[A](name: String)(f: => A): A = {
+    val (value, elapsed) = timeOf(name)(f)
+    
+    println(s"$name: $elapsed")
+    
+    value
   }
   
   def timeOf[A](name: String)(f: => A): (A, Long) = {
