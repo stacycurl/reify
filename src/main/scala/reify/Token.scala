@@ -88,15 +88,19 @@ object Token {
     def function: Function = Function(name, arguments)
   }
 
-  def parse(value: String): Either[String, Token] = new TokenParser().parse(value)
+  def parseToken(value: String): Either[String, Token] = new TokenParser().parseToken(value)
+  def parseFunction(value: String): Either[String, Function] = new TokenParser().parseFunction(value)
 
   private class TokenParser extends RegexParsers {
-    def parse(value: String): Either[String, Token] = parse(token, value) match {
+    def parseToken(value: String): Either[String, Token] = handleResult(parse(token, value))
+    def parseFunction(value: String): Either[String, Function] = handleResult(parse(function, value))
+    
+    private def handleResult[A](result: ParseResult[A]): Either[String, A] = result match {
       case Success(matched, _) => Right(matched)
       case Failure(msg, _)     => Left("FAILURE: " + msg)
       case Error(msg, _)       => Left("ERROR: " + msg)
     }
-
+    
     def token: Parser[Token] = (infix | compound | tstring | bool | num | identifier) ~ rep(((".") ~> function)) ^^ {
       case target ~ invocationChain => invocationChain.foldLeft(target) {
         case (acc, Function(name, args)) => Method(acc, name, args)

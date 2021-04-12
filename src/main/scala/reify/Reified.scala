@@ -5,7 +5,7 @@ import scala.language.{dynamics, implicitConversions, postfixOps}
 import java.io.File
 import reify.Reified.{RInfix, RList, RMethod}
 import reify.Reify.Reifys
-import reify.Token.{Arguments, Compound, Identifier, Infix, Method, Primitive, TString}
+import reify.Token.{Arguments, Compound, Function, Identifier, Infix, Method, Primitive, TString}
 import reify.internal.prelude._
 import symmetric.{Extractor, Injector, Symmetric}
 
@@ -82,6 +82,7 @@ object Reified extends Reify.Companion[Reified] {
       case Infix(parse(lhs), separator, parse(rhs))             => RInfix(lhs, separator, rhs)
       case Compound(r"new $name", Arguments(List(params)))      => RClass(name, params)
       case Compound(name, Arguments(List(params)))              => RCaseClass(name, params)
+      case Function(name, Arguments(List(params)))              => RCaseClass(name, params)
       case Method(parse(target), name, Arguments(List(params))) => RMethod(target, name, params)
     }
 
