@@ -289,7 +289,7 @@ private[reify] object ReifyImplementations {
 
   case class CaseClassReify[A: Alternative](ctx: CaseClass[Reify, A]) extends Reify[A] {
 
-    def rtype: RType = RType.TC0(ctx.typeName.short)
+    def rtype: RType = RType(ctx.typeName.short)
 
     def reify(value: A): Reified = {
       val result: Reified =
@@ -381,7 +381,7 @@ private[reify] object ReifyImplementations {
   }
 
   case class SealedTraitReify[A: Alternative](ctx: SealedTrait[Reify, A]) extends Reify[A] {
-    def rtype: RType = RType.TC0(ctx.typeName.full)
+    def rtype: RType = RType(ctx.typeName.full)
 
     def reify(value: A): Reified =
       Alternative.of[A].reify(value, reifyWithoutAlternative(_)).getOrElse(reifyWithoutAlternative(value))
@@ -505,7 +505,7 @@ private[reify] object ReifyImplementations {
     apply: (A, B) => CC,
     CC: Extractor[CC, (A, B)]
   )(implicit A: Reify[A], B: Reify[B]) extends Reify[CC] {
-    def rtype: RType = RType[A, B](name)
+    def rtype: RType = RType.create[A, B](name)
 
     def reify(value: CC): Reified = value match {
       case CC(a, b) => RInfix(a, name, b)

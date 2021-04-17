@@ -17,6 +17,9 @@ trait Extractor[-A, +B] {
   final def map[C](f: B => C): Extractor[A, C] =
     Extractor.Mapped(this, f)
 
+  final def collect[C](pf: PartialFunction[B, C]): Extractor[A, C] =
+    Extractor.Collected(this, pf)
+  
   final def attempt[C](f: B => C): Extractor[A, C] =
     Extractor.AndThen(this, (b: B) => Try(f(b)).toOption)
 
@@ -210,6 +213,10 @@ object Extractor {
 
   private case class Mapped[A, B, C](ab: Extractor[A, B], bc: B => C) extends Extractor[A, C] {
     def unapply(a: A): Option[C] = ab.unapply(a).map(bc)
+  }
+  
+  private case class Collected[A, B, C](ab: Extractor[A, B], bc: PartialFunction[B, C]) extends Extractor[A, C] {
+    def unapply(a: A): Option[C] = ab.unapply(a).collect(bc)
   }
 
   private case class FlatMapped[A, B, C](ab: Extractor[A, B], bc: B => Extractor[A, C]) extends Extractor[A, C] {

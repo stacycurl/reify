@@ -199,7 +199,7 @@ object Reified extends Reify.Companion[Reified] {
       }
     }
 
-    Reify[Reified](RType.TC0("Reified"), reify, reflect)
+    Reify[Reified](RType("Reified"), reify, reflect)
   }
 
   def tokenize(reified: Reified): Token = {
