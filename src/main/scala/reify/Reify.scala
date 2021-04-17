@@ -335,7 +335,7 @@ private[reify] object ReifyImplementations {
           }
         }
 
-        RCaseClass(typeName, fields.reverse)
+        RCaseClass(rtype, fields.reverse)
       }
 
       result
@@ -417,7 +417,7 @@ private[reify] object ReifyImplementations {
     val className: String = classTag.simpleClassName[CC]
 
     def reify(value: CC): Reified = value match {
-      case CC(a) => RCaseClass(className, a)
+      case CC(a) => RCaseClass(RType(className), a)
     }
 
     def reflect(reified: Reified): Option[CC] = PartialFunction.condOpt(reified) {
@@ -435,7 +435,7 @@ private[reify] object ReifyImplementations {
     val className: String = classTag.simpleClassName[CC]
 
     def reify(value: CC): Reified = value match {
-      case CC(a, b) => RCaseClass(className, a, b)
+      case CC(a, b) => RCaseClass(RType(className), a, b)
     }
 
     def reflect(reified: Reified): Option[CC] = PartialFunction.condOpt(reified) {
@@ -451,7 +451,7 @@ private[reify] object ReifyImplementations {
     val className: String = classTag.simpleClassName[CC]
 
     def reify(value: CC): Reified = value match {
-      case CC(a, b, c) => RCaseClass(className, a, b, c)
+      case CC(a, b, c) => RCaseClass(RType(className), a, b, c)
     }
 
     def reflect(reified: Reified): Option[CC] = PartialFunction.condOpt(reified) {

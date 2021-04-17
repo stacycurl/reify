@@ -4,7 +4,7 @@ package reify
 case class RType(name: String, args: List[RType]) {
   val typeName: String = args match {
     case Nil  => name
-    case many => s"name[${many.mkString(", ")}]"
+    case many => s"$name[${many.mkString(", ")}]"
   }
 
   final override def toString: String = typeName
