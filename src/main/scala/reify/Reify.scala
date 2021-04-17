@@ -342,10 +342,10 @@ private[reify] object ReifyImplementations {
     }
 
     private def reflectWithoutAlternative(reified: Reified): Option[A] = {
-      val stableTypeName: String = typeName
+      val stableTypeName: String = typeName.toLowerCase
 
       reified match {
-        case RCaseClass(`stableTypeName`, reifiedParameters) => {
+        case RCaseClass(LC(`stableTypeName`), reifiedParameters) => {
           val Default: Extractor[Param[Reify, A], Param[Reify, A]#PType] =
             Extractor.from[Param[Reify, A]].apply(_.default)
 
@@ -424,6 +424,8 @@ private[reify] object ReifyImplementations {
       case RCaseClass(`className`, List(A(a))) => apply(a)
     }
   }
+
+  private val LC: Extractor[String, String] = Extractor.from[String].property(_.toLowerCase)
 
   case class ManualCaseClass2Reify[CC: ClassTag, A, B](
     rtype: RType,
