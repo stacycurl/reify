@@ -32,7 +32,7 @@ object Token {
 
   def primitive(value: String): Token = Primitive(value)
 
-  def compound(name: String, tokens: List[Token]): Token = Compound(name, Arguments(tokens))
+  def compound(name: String, tokens: List[Token]): Token = Compound(TType(name, Nil), Arguments(tokens))
 
   def infix(lhs: Token, separator: String, rhs: Token): Token = Infix(lhs, separator, rhs)
 
@@ -53,17 +53,41 @@ object Token {
     def camelCase: Token = Identifier(value.camelCase)
     def kebabCase: Token = Identifier(value.kebabCase)
   }
+  
+  object TType {
+    def many(names: String*): List[TType] = names.map(apply(_)).toList
+    
+    def apply(name: String, args: TType*): TType = new TType(name, args.toList)
+  }
+  
+  @deriving(Reify)
+  case class TType(name: String, args: List[TType]) extends Token {
+    def modify(
+      name: String => String = identity,
+      args: List[TType] => List[TType] = identity
+    ): TType = copy(
+      name = name(this.name),
+      args = args(this.args)
+    )
+    
+    def camelCase: TType = TType(name.camelCase, args.map(_.camelCase))
+    def kebabCase: TType = TType(name.kebabCase, args.map(_.kebabCase))
+  }
 
   @deriving(Reify)
   case class Infix(lhs: Token, separator: String, rhs: Token) extends Token {
     def camelCase: Token = Infix(lhs.camelCase, separator, rhs.camelCase)
     def kebabCase: Token = Infix(lhs.kebabCase, separator, rhs.kebabCase)
   }
+  
+  object Compound {
+    def apply(name: String, arguments: Token): Compound = new Compound(TType(name, Nil), arguments)  
+  }
 
   @deriving(Reify)
-  case class Compound(name: String, arguments: Token) extends Token {
-    def camelCase: Token = Token.Compound(name.camelCase, arguments.camelCase)
-    def kebabCase: Token = Token.Compound(name.kebabCase, arguments.kebabCase)
+  case class Compound(ttype: TType, arguments: Token) extends Token {
+    def camelCase: Token = Token.Compound(ttype.camelCase, arguments.camelCase)
+    def kebabCase: Token = Token.Compound(ttype.kebabCase, arguments.kebabCase)
   }
 
   @deriving(Reify)
@@ -71,7 +95,7 @@ object Token {
     def camelCase: Token = Function(name.camelCase.uncapitalise, arguments.camelCase)
     def kebabCase: Token = Function(name.kebabCase, arguments.kebabCase)
     
-    def compound: Compound = Compound(name, arguments)
+    def compound: Compound = Compound(TType(name, Nil), arguments)
   }
 
   @deriving(Reify)
@@ -121,6 +145,10 @@ object Token {
     
     private def primitive: Parser[Primitive] = """[a-zA-Z0-9\-]+""".r ^^ { Primitive(_) }
     private def identifier: Parser[Identifier] = """[a-zA-Z0-9\-]+""".r ^^ { Identifier(_) }
+    
+    private def ttype: Parser[TType] = identifier ~ ("[" ~> repsep(ttype, comma) <~ "]").? ^^ {
+      case Token.Identifier(name) ~ optArgs => TType(name, optArgs.getOrElse(Nil))
+    }
 
     private def bool: Parser[Primitive] = "true|false".r ^^ { Primitive(_)}
     private def num: Parser[Primitive] = "[0-9]+".r ^^ { Primitive(_)}
@@ -132,9 +160,9 @@ object Token {
       doubleQuoted | tripleQuotes
     }
 
-    private def compound: Parser[Compound] = _new.? ~ identifier ~ ("(" ~> repsep(token, comma) <~ ")") ^^ {
-      case None    ~ Token.Identifier(name) ~ args => Compound(name, Arguments(args))
-      case Some(_) ~ Token.Identifier(name) ~ args => Compound(s"new $name", Arguments(args))
+    private def compound: Parser[Compound] = _new.? ~ ttype ~ ("(" ~> repsep(token, comma) <~ ")") ^^ {
+      case None    ~ ttype ~ args => Compound(ttype, Arguments(args))
+      case Some(_) ~ ttype ~ args => Compound(ttype.modify(name => s"new $name}"), Arguments(args))
     }
 
     private val List(comma, doubleQuote, tripleQuote) = List(",", "\"", "\"\"\"").map(value => value ^^ (_ => ()))

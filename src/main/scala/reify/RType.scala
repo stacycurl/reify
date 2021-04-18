@@ -1,9 +1,12 @@
 package reify
 
 import reify.Reified.{RCaseClass, RString}
+import reify.Token.TType
 
 
 case class RType(name: String, args: List[RType]) {
+  def tokenize: TType = TType(name, args.map(_.tokenize))
+  
   val typeName: String = args match {
     case Nil  => name
     case many => s"$name[${many.mkString(", ")}]"
@@ -13,6 +16,9 @@ case class RType(name: String, args: List[RType]) {
 }
 
 object RType extends Reify.Companion[RType] {
+  def fromTType(ttype: TType): RType =
+    RType(ttype.name, ttype.args.map(fromTType))
+  
   implicit val reifyRType: Reify[RType] = Reify.defer[RType] {
     Reify.apply[RType](
       RType("RType"), 

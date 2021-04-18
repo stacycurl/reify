@@ -1,7 +1,7 @@
 package reify
 
 import reify.Reified.RList
-import reify.Token.Arguments
+import reify.Token.{Arguments, TType}
 import reify.internal.prelude._
 
 import scala.collection.immutable.{List, Nil}
@@ -107,14 +107,15 @@ object Formatter {
         vs.map(_.indent)
       
       val result = tok match {
+        case it: TType => List(Lines(formatTType(it)))
         case Primitive(value) => List(Lines(value))
         case Identifier(value) => List(Lines(value))
         case TString(value) => List(Lines(formatString(value)))
           
-        case Compound(name, arguments) => for {
-          t <- tokenFormats(arguments)
+        case Compound(ttype, arguments) => for {
+          a <- tokenFormats(arguments)
         } yield {
-          Lines(s"$name(") + t + Lines(")")
+          Lines(s"${formatTType(ttype)}(") + a + Lines(")")
         }
   
         case function: Function => tokenFormats(function.compound)
@@ -174,14 +175,15 @@ object Formatter {
   
   trait Helper { self: Formatter => 
     final def format(token: Token): String = token match {
-      case identifier: Token.Identifier => formatIdentifier(identifier)
-      case primitive:  Token.Primitive  => formatPrimitive(primitive)
-      case string:     Token.TString    => formatString(string)
-      case infix:      Token.Infix      => formatInfix(infix)
-      case method:     Token.Method     => formatMethod(method)
-      case function:   Token.Function   => formatFunction(function)
-      case compound:   Token.Compound   => formatCompound(compound)
-      case arguments:  Token.Arguments  => formatArguments(arguments)
+      case it: Token.Identifier => formatIdentifier(it)
+      case it: Token.Primitive  => formatPrimitive(it)
+      case it: Token.TString    => formatString(it)
+      case it: Token.Infix      => formatInfix(it)
+      case it: Token.Method     => formatMethod(it)
+      case it: Token.Function   => formatFunction(it)
+      case it: Token.Compound   => formatCompound(it)
+      case it: Token.Arguments  => formatArguments(it)
+      case it: Token.TType      => formatTType(it)        
     }
   
     def formatIdentifier(identifier: Token.Identifier): String
@@ -243,18 +245,18 @@ object Formatter {
     }
 
     def formatCompound(compound: Token.Compound): String = {
-      if (compound.arguments.isEmpty) s"${compound.name}()" else {
+      if (compound.arguments.isEmpty) s"${formatTType(compound.ttype)}()" else {
         val unindented = this.unindented.formatCompound(compound)
         val ul = unindented.length
 
         if (ul <= margin) unindented else {
           val formattedArguments = formatArguments(compound)
 
-          s"${compound.name}(${beforeFirstItem}$formattedArguments${afterLastItem})"
+          s"${formatTType(compound.ttype)}(${beforeFirstItem}$formattedArguments${afterLastItem})"
         }
       }
     }
-
+    
     private def formatArguments(compound: Token.Compound): String = {
       val unindented = applyIndent(this.unindented.formatArguments(compound.arguments))
       
@@ -303,8 +305,8 @@ object Formatter {
     }
 
     def formatCompound(compound: Token.Compound): String =
-      s"${compound.name}(${formatArguments(compound.arguments)})"
-
+      s"${formatTType(compound.ttype)}(${formatArguments(compound.arguments)})"
+    
     def formatArguments(token: Token): String = token match {
       case Arguments(values) => formatArguments(values)
       case other             => format(token)
@@ -318,5 +320,10 @@ object Formatter {
         .map(token => format(token))
         .mkString(", ")
     }
+  }
+
+  private def formatTType(ttype: TType): String = ttype match {
+    case TType(name, Nil)  => name
+    case TType(name, args) => s"$name[${args.map(formatTType).mkString(", ")}]"
   }
 }

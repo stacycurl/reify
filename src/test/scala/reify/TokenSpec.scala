@@ -2,7 +2,7 @@ package reify
 
 import org.scalatest.FreeSpec
 import reify.Reified._
-import reify.Token.{Arguments, Compound, Identifier, Infix, Method, Primitive, TString}
+import reify.Token.{Arguments, Compound, Identifier, Infix, Method, Primitive, TString, TType}
 
 import scala.collection.immutable.{List, Nil}
 
@@ -180,12 +180,19 @@ class TokenSpec extends FreeSpec {
           ) === """RMethod(RPrimitive("Foo"), "oof", Nil)"""
         )
       }
-
+      
       "more complex with method" in {
         assert(
           Formatter.Unindented.format(
             Reify.reify(RMethod(RPrimitive("Foo"), "oof", List(RInt(123))): Reified).tokenize
           ) === """RMethod(RPrimitive("Foo"), "oof", List(RInt(123)))"""
+        )
+      }
+
+      "typed" in {
+        assert(
+          Formatter.Unindented.format(Compound(TType("Foo", TType("A")), Arguments(List(Primitive("3"))))) ===
+          "Foo[A](3)"
         )
       }
     }
@@ -226,6 +233,20 @@ class TokenSpec extends FreeSpec {
           Compound("subtract", Arguments(List(Primitive("2"), Primitive("1"))))
         ))
       }
+
+      "with type params" - {
+        "flat" in {
+          assert(Token.parseToken("abc[A, B]()") === Right(Compound(TType("abc", TType.many("A", "B")), Arguments(Nil))))
+        }
+
+        "nested" in {
+          assert(
+            Token.parseToken("abc[Either[A, Option[B]]]()") === 
+            Right(Compound(TType("abc", TType("Either", List(TType("A"), TType("Option", TType("B"))))), Arguments(Nil)))
+          )
+        }      
+      }
+      
     }
 
     "method" - {

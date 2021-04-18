@@ -5,7 +5,7 @@ import scala.language.{dynamics, implicitConversions, postfixOps}
 import java.io.File
 import reify.Reified.{RInfix, RList, RMethod}
 import reify.Reify.Reifys
-import reify.Token.{Arguments, Compound, Function, Identifier, Infix, Method, Primitive, TString}
+import reify.Token.{Arguments, Compound, Function, Identifier, Infix, Method, Primitive, TString, TType}
 import reify.internal.prelude._
 import symmetric.{Extractor, Injector, Symmetric}
 
@@ -76,14 +76,14 @@ object Reified extends Reify.Companion[Reified] {
     def unapply(token: Token): Option[Reified] = apply(token)
 
     def apply(token: Token): Option[Reified] = PartialFunction.condOpt(token) {
-      case Primitive(value)                                     => RPrimitive(value)
-      case Identifier(value)                                    => RPrimitive(value)
-      case TString(value)                                       => RString(value)
-      case Infix(parse(lhs), separator, parse(rhs))             => RInfix(lhs, separator, rhs)
-      case Compound(r"new $name", Arguments(List(params)))      => RClass(RType(name), params)
-      case Compound(name, Arguments(List(params)))              => RCaseClass(RType(name), params)
-      case Function(name, Arguments(List(params)))              => RCaseClass(RType(name), params)
-      case Method(parse(target), name, Arguments(List(params))) => RMethod(target, name, params)
+      case Primitive(value)                                             => RPrimitive(value)
+      case Identifier(value)                                            => RPrimitive(value)
+      case TString(value)                                               => RString(value)
+      case Infix(parse(lhs), separator, parse(rhs))                     => RInfix(lhs, separator, rhs)
+      case Compound(TType(r"new $name", args), Arguments(List(params))) => RClass(RType.fromTType(TType(name, args)), params)
+      case Compound(ttype, Arguments(List(params)))                     => RCaseClass(RType.fromTType(ttype), params)
+      case Function(name, Arguments(List(params)))                      => RCaseClass(RType(name), params)
+      case Method(parse(target), name, Arguments(List(params)))         => RMethod(target, name, params)
     }
 
     private val List: Extractor[List[Token], List[Reified]] = Extractor.from[List[Token]].apply(tokens => {
@@ -208,8 +208,8 @@ object Reified extends Reify.Companion[Reified] {
 
   def tokenize(reified: Reified): Token = {
     def loop(reified: Reified): Token = reified match {
-      case RCaseClass(RType(name, _), parameters) => Compound(name, Arguments(parameters.map(loop)))
-      case RClass(RType(name, _), parameters)     => Compound(s"new $name", Arguments(parameters.map(loop)))
+      case RCaseClass(rtype, parameters)          => Compound(rtype.tokenize, Arguments(parameters.map(loop)))
+      case RClass(rtype, parameters)              => Compound(rtype.tokenize.modify(name => s"new $name"), Arguments(parameters.map(loop)))
       case RInfix(lhs, name, rhs)                 => Infix(loop(lhs), name, loop(rhs))
       case RMethod(target, name, parameters)      => Method(loop(target), name, Arguments(parameters.map(loop)))
       case RPrimitive(value)                      => Primitive(value)
