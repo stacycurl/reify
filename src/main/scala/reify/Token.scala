@@ -72,6 +72,8 @@ object Token {
     
     def camelCase: TType = TType(name.camelCase, args.map(_.camelCase))
     def kebabCase: TType = TType(name.kebabCase, args.map(_.kebabCase))
+    
+    def nonEmpty: Boolean = args.nonEmpty
   }
 
   @deriving(Reify)
@@ -91,11 +93,11 @@ object Token {
   }
 
   @deriving(Reify)
-  case class Function(name: String, arguments: Token) extends Token {
-    def camelCase: Token = Function(name.camelCase.uncapitalise, arguments.camelCase)
-    def kebabCase: Token = Function(name.kebabCase, arguments.kebabCase)
-    
-    def compound: Compound = Compound(TType(name, Nil), arguments)
+  case class Function(ttype: TType, arguments: Token) extends Token {
+    def camelCase: Token = Function(ttype.camelCase, arguments.camelCase)
+    def kebabCase: Token = Function(ttype.kebabCase, arguments.kebabCase)
+
+    def compound: Compound = Compound(ttype, arguments)
   }
 
   @deriving(Reify)
@@ -109,15 +111,15 @@ object Token {
     def camelCase: Token = Method(target.camelCase, name.camelCase.uncapitalise, arguments.camelCase)
     def kebabCase: Token = Method(target.kebabCase, name.kebabCase, arguments.kebabCase)
 
-    def function: Function = Function(name, arguments)
+    def function: Function = Function(TType(name), arguments)
   }
 
   def parseToken(value: String): Either[String, Token] = new TokenParser().parseToken(value)
-  def parseFunction(value: String): Either[String, Function] = new TokenParser().parseFunction(value)
+  def parseFunction(value: String): Either[String, Token] = new TokenParser().parseFunction(value)
 
   private class TokenParser extends RegexParsers {
     def parseToken(value: String): Either[String, Token] = handleResult(parse(token, value))
-    def parseFunction(value: String): Either[String, Function] = handleResult(parse(function, value))
+    def parseFunction(value: String): Either[String, Token] = handleResult(parse(function, value))
     
     private def handleResult[A](result: ParseResult[A]): Either[String, A] = result match {
       case Success(matched, _) => Right(matched)
@@ -127,12 +129,20 @@ object Token {
     
     def token: Parser[Token] = (infix | compound | tstring | bool | num | identifier) ~ rep(((".") ~> function)) ^^ {
       case target ~ invocationChain => invocationChain.foldLeft(target) {
-        case (acc, Function(name, args)) => Method(acc, name, args)
+        case (acc, Function(ttype, args)) => Method(acc, ttype.name, args)
       }
     }
+    
+    private def params: Parser[TType ~ List[Token]] = (ttype ~ tokens).filter {
+      case ttype ~ tokens => ttype.nonEmpty || tokens.nonEmpty
+    }
 
-    private def function: Parser[Function] = primitive ~ ("(" ~> repsep(token, comma) <~ ")") ^^ {
-      case Primitive(name) ~ args => Function(name, Arguments(args))
+    private def function: Parser[Token] = {
+      val withArgs = params ^^ {
+        case ttype ~ args => Function(ttype, Arguments(args))
+      }
+      
+      withArgs | identifier
     }
 
     private def infix: Parser[Infix] = primitive ~ (rep(" ") ~> operator <~ rep(" ")) ~ primitive ^^ {
@@ -159,10 +169,12 @@ object Token {
 
       doubleQuoted | tripleQuotes
     }
+    
+    private def tokens: Parser[List[Token]] = ("(" ~> rep1sep(token, comma) <~ ")").?.map(_.getOrElse(Nil))
 
-    private def compound: Parser[Compound] = _new.? ~ ttype ~ ("(" ~> repsep(token, comma) <~ ")") ^^ {
-      case None    ~ ttype ~ args => Compound(ttype, Arguments(args))
-      case Some(_) ~ ttype ~ args => Compound(ttype.modify(name => s"new $name}"), Arguments(args))
+    private def compound: Parser[Compound] = _new.? ~ params ^? {
+      case None    ~ (ttype ~ args) => Compound(ttype,                               Arguments(args))
+      case Some(_) ~ (ttype ~ args) => Compound(ttype.modify(name => s"new $name}"), Arguments(args))
     }
 
     private val List(comma, doubleQuote, tripleQuote) = List(",", "\"", "\"\"\"").map(value => value ^^ (_ => ()))

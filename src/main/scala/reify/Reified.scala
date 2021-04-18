@@ -82,7 +82,7 @@ object Reified extends Reify.Companion[Reified] {
       case Infix(parse(lhs), separator, parse(rhs))                     => RInfix(lhs, separator, rhs)
       case Compound(TType(r"new $name", args), Arguments(List(params))) => RClass(RType.fromTType(TType(name, args)), params)
       case Compound(ttype, Arguments(List(params)))                     => RCaseClass(RType.fromTType(ttype), params)
-      case Function(name, Arguments(List(params)))                      => RCaseClass(RType(name), params)
+      case Function(ttype, Arguments(List(params)))                     => RCaseClass(RType.fromTType(ttype), params)
       case Method(parse(target), name, Arguments(List(params)))         => RMethod(target, name, params)
     }
 
@@ -325,6 +325,18 @@ object Reified extends Reify.Companion[Reified] {
 
     def unapply(reified: Reified): Option[(Reified, Reified, Reified)] = PartialFunction.condOpt(reified) {
       case RCaseClass(RType("", _), a :: b :: c :: Nil) => (a, b, c)
+    }
+  }
+  
+  object RTuple4 {
+    def create[A: Reify, B: Reify, C: Reify, D: Reify](abcd: (A, B, C, D)): Reified =
+      apply((Reify.reify(abcd._1), Reify.reify(abcd._2), Reify.reify(abcd._3), Reify.reify(abcd._4)))
+    
+    def apply(t: (Reified, Reified, Reified, Reified)): Reified =
+      RCaseClass(RType(""), List(t._1, t._2, t._3, t._4))
+
+    def unapply(reified: Reified): Option[(Reified, Reified, Reified, Reified)] = PartialFunction.condOpt(reified) {
+      case RCaseClass(RType("", _), a :: b :: c :: d :: Nil) => (a, b, c, d)
     }
   }
   

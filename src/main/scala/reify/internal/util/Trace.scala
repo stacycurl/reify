@@ -1,11 +1,15 @@
 package reify.internal.util
 
-import reify.{Reified, Token}
+import reify.{Reified, Reify, Token}
+import scalaz.annotation.deriving
 
 
-case class Trace(reified: Reified, token: Token, kebabCase: Token, formatted: String) {
+@deriving(Reify)
+case class Trace[A: Reify](value: A, reified: Reified, token: Token, kebabCase: Token, formatted: String) {
   override def toString: String =
     s"""Trace:
+       |  value: $value
+       |
        |  reified: $reified
        |  
        |  token: $token

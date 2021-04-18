@@ -1,7 +1,7 @@
 package reify
 
 import java.io.File
-import reify.Reified.{RBoolean, REither, RFile, RInt, RList, RLong, RMap, ROption, RSet, RString, RTuple2, RTuple3}
+import reify.Reified.{RBoolean, REither, RFile, RInt, RList, RLong, RMap, ROption, RSet, RString, RTuple2, RTuple3, RTuple4}
 import symmetric.Injector
 
 
@@ -31,6 +31,11 @@ trait ReifyInstances {
   implicit def reifyTuple3[A, B, C](implicit A: Reify[A], B: Reify[B], C: Reify[C]): Reify[(A, B, C)] =
     instance[(A, B, C)](RType.create[A, B, C]("Tuple3"), RTuple3.create) {
       case RTuple3(A(a), B(b), C(c)) => (a, b, c)
+    }
+
+  implicit def reifyTuple4[A, B, C, D](implicit A: Reify[A], B: Reify[B], C: Reify[C], D: Reify[D]): Reify[(A, B, C, D)] =
+    instance[(A, B, C, D)](RType.create[A, B, C, D]("Tuple4"), RTuple4.create) {
+      case RTuple4(A(a), B(b), C(c), D(d)) => (a, b, c, d)
     }
 
   implicit def reifyOption[A: Reify]: Reify[Option[A]] =

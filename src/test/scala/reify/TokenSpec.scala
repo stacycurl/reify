@@ -130,6 +130,13 @@ class TokenSpec extends FreeSpec {
           )
         }
       }
+      
+      "empty" in {
+        assert(
+          Formatter.Unindented.format(Compound("Foo", Arguments(Nil))) ===
+          "Foo"
+        )        
+      }
 
       "wrapping" - {
         val ones   = Primitive("111")
@@ -214,8 +221,14 @@ class TokenSpec extends FreeSpec {
     }
 
     "compound" - {
-      "no args" in {
-        assert(Token.parseToken("abc()") === Right(Compound("abc", Arguments(Nil))))
+      "type args" in {
+        assert(Token.parseToken("abc[A, B]") === Right(Compound(TType("abc", TType("A"), TType("B")), Arguments(Nil))))
+      }
+
+      "args & type args" in {
+        assert(Token.parseToken("abc[A, B](def)") === Right(Compound(
+          TType("abc", TType("A"), TType("B")), Arguments(List(Identifier("def"))))
+        ))
       }
 
       "one arg" in {

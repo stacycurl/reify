@@ -2,7 +2,7 @@ package reify
 
 import org.scalatest.FreeSpec
 import reify.Reified.{RBoolean, RCaseClass, REither, RInfix, RInt, RList, RMap, RMethod, ROption, RPrimitive, RString}
-import reify.Token.{Arguments, Compound, Infix, Method, Primitive, TString}
+import reify.Token.{Arguments, Compound, Infix, Method, Primitive, TString, TType}
 
 
 class ReifiedSpec extends FreeSpec {
@@ -297,8 +297,25 @@ class ReifiedSpec extends FreeSpec {
       }
     }
 
-    "RCaseClass" in {
-      assert(RCaseClass("Foo", 3).tokenize === Compound("Foo", Arguments(List(Primitive("3")))))
+    "RCaseClass" - {
+      "with neither arguments, nor type arguments" in {
+        assert(RCaseClass("Foo").tokenize === Compound("Foo", Arguments(Nil)))
+      }
+      
+      "with argments, but no type arguments" in {
+        assert(RCaseClass("Foo", 3).tokenize === Compound("Foo", Arguments(List(Primitive("3")))))
+      }
+      
+      "with no arguments, but with type arguments" in {
+        assert(RCaseClass(RType("Foo", RType("A"))).tokenize === Compound(TType("Foo", TType("A")), Arguments(Nil)))
+      }
+      
+      "with arguments, and with type arguments" in {
+        assert(RCaseClass(RType("Foo", RType("A")), List(RInt(3))).tokenize === Compound(
+          TType("Foo", TType("A")), 
+          Arguments(List(Primitive("3")))
+        ))
+      }
     }
 
     "Infix" in {

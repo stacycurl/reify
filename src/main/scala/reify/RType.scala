@@ -16,6 +16,14 @@ case class RType(name: String, args: List[RType]) {
 }
 
 object RType extends Reify.Companion[RType] {
+  object Typed {
+    def apply[A](implicit A: Typed[A]): RType = A.value
+
+    implicit def typedRTypeFromReify[A](implicit A: Reify[A]): Typed[A] = Typed[A](A.rtype)
+  }
+  
+  case class Typed[A](value: RType)
+  
   def fromTType(ttype: TType): RType =
     RType(ttype.name, ttype.args.map(fromTType))
   
@@ -40,6 +48,7 @@ object RType extends Reify.Companion[RType] {
   def create[A: Reify](name: String): RType = apply(name, of[A])
   def create[A: Reify, B: Reify](name: String): RType = apply(name, of[A], of[B])
   def create[A: Reify, B: Reify, C: Reify](name: String): RType = apply(name, of[A], of[B], of[C])
+  def create[A: Reify, B: Reify, C: Reify, D: Reify](name: String): RType = apply(name, of[A], of[B], of[C], of[D])
 
   def apply(name: String, args: RType*): RType = RType(name, args.toList)
 }

@@ -241,11 +241,11 @@ object Formatter {
         }
       }
 
-      (s"${function.name}" +: parameters +: Nil).mkString("")
+      (s"${formatTType(function.ttype)}" +: parameters +: Nil).mkString("")
     }
 
     def formatCompound(compound: Token.Compound): String = {
-      if (compound.arguments.isEmpty) s"${formatTType(compound.ttype)}()" else {
+      if (compound.arguments.isEmpty) s"${formatTType(compound.ttype)}" else {
         val unindented = this.unindented.formatCompound(compound)
         val ul = unindented.length
 
@@ -301,11 +301,14 @@ object Formatter {
         }
       }
 
-      (s"${function.name}" +: parameters +: Nil).mkString("")
+      (s"${formatTType(function.ttype)}" +: parameters +: Nil).mkString("")
     }
 
-    def formatCompound(compound: Token.Compound): String =
-      s"${formatTType(compound.ttype)}(${formatArguments(compound.arguments)})"
+    def formatCompound(compound: Token.Compound): String = {
+      if (compound.arguments.isEmpty) formatTType(compound.ttype) else {
+        s"${formatTType(compound.ttype)}(${formatArguments(compound.arguments)})"  
+      }
+    }
     
     def formatArguments(token: Token): String = token match {
       case Arguments(values) => formatArguments(values)
