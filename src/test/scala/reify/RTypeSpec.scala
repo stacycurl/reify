@@ -1,7 +1,7 @@
 package reify
 
 import org.scalatest.FreeSpec
-import reify.Reified.{RCaseClass, RString}
+import reify.Reified.RCaseClass
 
 
 class RTypeSpec extends FreeSpec {

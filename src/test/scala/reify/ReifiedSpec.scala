@@ -117,7 +117,11 @@ class ReifiedSpec extends FreeSpec {
 
     "Infix" in {
       assert(Reify.reify(RInfix(123, " + ", 456): Reified) === RCaseClass(
-        RType("RInfix"), List(RInt(123), RString(" + "), RInt(456))
+        RType("RInfix"), List(
+          RCaseClass(RType("RInt"), List(RPrimitive("123"))), 
+          RString(" + "), 
+          RCaseClass(RType("RInt"), List(RPrimitive("456")))
+        )
       ))
     }
 

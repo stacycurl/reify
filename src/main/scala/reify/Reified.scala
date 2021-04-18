@@ -120,7 +120,7 @@ object Reified extends Reify.Companion[Reified] {
       case RMap(map)                         => RCaseClass(RType("RMap"), RRMap(map))
       case RClass(rtype, parameters)         => RCaseClass(RType("RClass"), Reify.reify(rtype) :: RRList(parameters) :: Nil)
       case RCaseClass(rtype, parameters)     => RCaseClass(RType("RCaseClass"), Reify.reify(rtype) :: RRList(parameters) :: Nil)
-      case RInfix(lhs, name, rhs)            => RCaseClass(RType("RInfix"), List(lhs, RString(name), rhs))
+      case RInfix(lhs, name, rhs)            => RCaseClass(RType("RInfix"), List(reify(lhs), RString(name), reify(rhs)))
       case RMethod(target, name, parameters) => RCaseClass(RType("RMethod"), List(reify(target), RString(name), RRList(parameters)))
       case RVarArgs(args)                    => RCaseClass(RType("RVarArgs"), RRList(args))
     }
@@ -135,7 +135,7 @@ object Reified extends Reify.Companion[Reified] {
       case RCaseClass(RType("REither", _), List(RREither(value)))                                         => REither(value)
       case RCaseClass(RType("RList", _), List(RRList(elements)))                                          => RList(elements)
       case RCaseClass(RType("RMap", _), List(RRMap(map)))                                                 => RMap(map)
-      case RCaseClass(RType("RInfix", _), List(lhs, RString(name), rhs))                                  => RInfix(lhs, name, rhs)
+      case RCaseClass(RType("RInfix", _), List(Reified(lhs), RString(name), Reified(rhs)))                => RInfix(lhs, name, rhs)
       case RCaseClass(RType("RClass", _), RType(rtype) :: RRList(parameters) :: Nil)                      => RClass(rtype, parameters)
       case RCaseClass(RType("RCaseClass", Nil), RType(rtype) :: RRList(parameters) :: Nil)                => RCaseClass(rtype, parameters)
       case RCaseClass(RType("RMethod", _), Reified(target) :: RString(name) :: RRList(parameters) :: Nil) => RMethod(target, name, parameters)
