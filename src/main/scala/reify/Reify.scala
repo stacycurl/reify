@@ -345,7 +345,7 @@ private[reify] object ReifyImplementations {
       val stableTypeName: String = typeName.toLowerCase
 
       reified match {
-        case RCaseClass(LC(`stableTypeName`), reifiedParameters) => {
+        case RCaseClass(RType(LC(`stableTypeName`), _), reifiedParameters) => {
           val Default: Extractor[Param[Reify, A], Param[Reify, A]#PType] =
             Extractor.from[Param[Reify, A]].apply(_.default)
 
@@ -399,7 +399,7 @@ private[reify] object ReifyImplementations {
       )
 
       reified match {
-        case RCaseClass(SubtypeReify(reify), _) => reify.reflect(reified)
+        case RCaseClass(RType(SubtypeReify(reify), _), _) => reify.reflect(reified)
         case _ => ctx.subtypes.foldLeft(None: Option[A]) {
           case (Some(a), _) => Some(a)
           case (None, subtype) => subtype.typeclass.reflect(reified)
@@ -421,7 +421,7 @@ private[reify] object ReifyImplementations {
     }
 
     def reflect(reified: Reified): Option[CC] = PartialFunction.condOpt(reified) {
-      case RCaseClass(`className`, List(A(a))) => apply(a)
+      case RCaseClass(RType(`className`, _), List(A(a))) => apply(a)
     }
   }
 
@@ -439,7 +439,7 @@ private[reify] object ReifyImplementations {
     }
 
     def reflect(reified: Reified): Option[CC] = PartialFunction.condOpt(reified) {
-      case RCaseClass(`className`, List(A(a), B(b))) => apply(a, b)
+      case RCaseClass(RType(`className`, _), List(A(a), B(b))) => apply(a, b)
     }
   }
 
@@ -455,7 +455,7 @@ private[reify] object ReifyImplementations {
     }
 
     def reflect(reified: Reified): Option[CC] = PartialFunction.condOpt(reified) {
-      case RCaseClass(`className`, List(A(a), B(b), C(c))) => apply(a, b, c)
+      case RCaseClass(RType(`className`, _), List(A(a), B(b), C(c))) => apply(a, b, c)
     }
   }
 

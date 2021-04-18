@@ -108,36 +108,38 @@ object Reified extends Reify.Companion[Reified] {
 
   implicit val reifyReified: Reify[Reified] = {
     def reify(value: Reified): Reified = value match {
-      case RBoolean(value)                   => RCaseClass("RBoolean", value)
-      case RInt(value)                       => RCaseClass("RInt", value)
-      case RLong(value)                      => RCaseClass("RLong", value)
-      case RString(value)                    => RCaseClass("RString", value)
-      case RPrimitive(value)                 => RCaseClass("RPrimitive", RString(value))
+      case RBoolean(value)                   => RCaseClass(RType("RBoolean"), value)
+      case RInt(value)                       => RCaseClass(RType("RInt"), value)
+      case RLong(value)                      => RCaseClass(RType("RLong"), value)
+      case RString(value)                    => RCaseClass(RType("RString"), value)
+      case RPrimitive(value)                 => RCaseClass(RType("RPrimitive"), RString(value))
       case ROption(value)                    => RCaseClass(RType("ROption"), RROption(value))
       case REither(value)                    => RCaseClass(RType("REither"), RREither(value))
       case RList(list)                       => RCaseClass(RType("RList"), RRList(list))
       case RSet(set)                         => RCaseClass(RType("RSet"), RRSet(set))
       case RMap(map)                         => RCaseClass(RType("RMap"), RRMap(map))
-      case RCaseClass(name, parameters)      => RCaseClass("RCaseClass", RString(name) :: RRList(parameters) :: Nil)
-      case RInfix(lhs, name, rhs)            => RCaseClass("RInfix", List(lhs, RString(name), rhs))
-      case RMethod(target, name, parameters) => RCaseClass("RMethod", List(reify(target), RString(name), RRList(parameters)))
-      case RVarArgs(args)                    => RCaseClass("RVarArgs", RRList(args))
+      case RClass(rtype, parameters)         => RCaseClass(RType("RClass"), RCaseClass("RType", RString(rtype.name)) :: RRList(parameters) :: Nil)
+      case RCaseClass(rtype, parameters)     => RCaseClass(RType("RCaseClass"), RCaseClass("RType", RString(rtype.name)) :: RRList(parameters) :: Nil)
+      case RInfix(lhs, name, rhs)            => RCaseClass(RType("RInfix"), List(lhs, RString(name), rhs))
+      case RMethod(target, name, parameters) => RCaseClass(RType("RMethod"), List(reify(target), RString(name), RRList(parameters)))
+      case RVarArgs(args)                    => RCaseClass(RType("RVarArgs"), RRList(args))
     }
 
     def reflect(reified: Reified): Option[Reified] = PartialFunction.condOpt(reified) {
-      case RCaseClass("RBoolean", List(RBoolean(value)))                                        => RBoolean(value)
-      case RCaseClass("RInt", List(RInt(value)))                                                => RInt(value)
-      case RCaseClass("RLong", List(RLong(value)))                                              => RLong(value)
-      case RCaseClass("RString", List(RString(value)))                                          => RString(value)
-      case RCaseClass("RPrimitive", List(RString(value)))                                       => RPrimitive(value)
-      case RCaseClass("ROption", List(RROption(value)))                                         => ROption(value)
-      case RCaseClass("REither", List(RREither(value)))                                         => REither(value)
-      case RCaseClass("RList", List(RRList(elements)))                                          => RList(elements)
-      case RCaseClass("RMap", List(RRMap(map)))                                                 => RMap(map)
-      case RCaseClass("RInfix", List(lhs, RString(name), rhs))                                  => RInfix(lhs, name, rhs)
-      case RCaseClass("RCaseClass", RString(name) :: RRList(parameters) :: Nil)                 => RCaseClass(name, parameters)
-      case RCaseClass("RMethod", Reified(target) :: RString(name) :: RRList(parameters) :: Nil) => RMethod(target, name, parameters)
-      case RCaseClass("RVarArgs", List(RRList(args)))                                           => RVarArgs(args)
+      case RCaseClass(RType("RBoolean", _), List(RBoolean(value)))                                        => RBoolean(value)
+      case RCaseClass(RType("RInt", _), List(RInt(value)))                                                => RInt(value)
+      case RCaseClass(RType("RLong", _), List(RLong(value)))                                              => RLong(value)
+      case RCaseClass(RType("RString", _), List(RString(value)))                                          => RString(value)
+      case RCaseClass(RType("RPrimitive", _), List(RString(value)))                                       => RPrimitive(value)
+      case RCaseClass(RType("ROption", _), List(RROption(value)))                                         => ROption(value)
+      case RCaseClass(RType("REither", _), List(RREither(value)))                                         => REither(value)
+      case RCaseClass(RType("RList", _), List(RRList(elements)))                                          => RList(elements)
+      case RCaseClass(RType("RMap", _), List(RRMap(map)))                                                 => RMap(map)
+      case RCaseClass(RType("RInfix", _), List(lhs, RString(name), rhs))                                  => RInfix(lhs, name, rhs)
+      case RCaseClass(RType("RClass", _), RCaseClass(RType("RType", _), List(RString(name))) :: RRList(parameters) :: Nil)                 => RClass(RType(name), parameters)
+      case RCaseClass(RType("RCaseClass", _), RCaseClass(RType("RType", _), List(RString(name))) :: RRList(parameters) :: Nil)                 => RCaseClass(RType(name), parameters)
+      case RCaseClass(RType("RMethod", _), Reified(target) :: RString(name) :: RRList(parameters) :: Nil) => RMethod(target, name, parameters)
+      case RCaseClass(RType("RVarArgs", _), List(RRList(args)))                                           => RVarArgs(args)
     }
 
     object RROption {
@@ -147,8 +149,8 @@ object Reified extends Reify.Companion[Reified] {
       }
 
       def unapply(reified: Reified): Option[Option[Reified]] = PartialFunction.condOpt(reified) {
-        case RPrimitive("None")                       => None
-        case RCaseClass("Some", List(Reified(value))) => Some(value)
+        case RPrimitive("None")                                 => None
+        case RCaseClass(RType("Some", _), List(Reified(value))) => Some(value)
       }
     }
 
@@ -159,8 +161,8 @@ object Reified extends Reify.Companion[Reified] {
       }
 
       def unapply(reified: Reified): Option[Either[Reified, Reified]] = PartialFunction.condOpt(reified) {
-        case RCaseClass("Left", List(Reified(value))) => Left(value)
-        case RCaseClass("Right", List(Reified(value))) => Right(value)
+        case RCaseClass(RType("Left", _),  List(Reified(value))) => Left(value)
+        case RCaseClass(RType("Right", _), List(Reified(value))) => Right(value)
       }
     }
 
@@ -174,7 +176,7 @@ object Reified extends Reify.Companion[Reified] {
 
       def unapply(reified: Reified): Option[Map[Reified, Reified]] = PartialFunction.condOpt(reified) {
         case RMethod(RPrimitive("Map"), "empty", Nil) => Map.empty
-        case RCaseClass("Map", elements) => Map(elements collect {
+        case RCaseClass(RType("Map", _), elements) => Map(elements collect {
           case RInfix(Reified(key), " -> ", Reified(value)) => key -> value
         }: _*)
       }
@@ -188,7 +190,7 @@ object Reified extends Reify.Companion[Reified] {
 
       def unapply(reified: Reified): Option[List[Reified]] = PartialFunction.condOpt(reified) {
         case RPrimitive("Nil")            => Nil
-        case RCaseClass("List", nonEmpty) => nonEmpty.flatMap(reflect)
+        case RCaseClass(RType("List", _), nonEmpty) => nonEmpty.flatMap(reflect)
       }
     }
 
@@ -197,7 +199,7 @@ object Reified extends Reify.Companion[Reified] {
         RCaseClass(RType("Set"), values.toList.map(reify))
 
       def unapply(reified: Reified): Option[Set[Reified]] = PartialFunction.condOpt(reified) {
-        case RCaseClass("Set", values) => values.flatMap(reflect).toSet
+        case RCaseClass(RType("Set", _), values) => values.flatMap(reflect).toSet
       }
     }
 
@@ -206,13 +208,13 @@ object Reified extends Reify.Companion[Reified] {
 
   def tokenize(reified: Reified): Token = {
     def loop(reified: Reified): Token = reified match {
-      case RCaseClass(name, parameters)      => Compound(name, Arguments(parameters.map(loop)))
-      case RClass(name, parameters)          => Compound(s"new $name", Arguments(parameters.map(loop)))
-      case RInfix(lhs, name, rhs)            => Infix(loop(lhs), name, loop(rhs))
-      case RMethod(target, name, parameters) => Method(loop(target), name, Arguments(parameters.map(loop)))
-      case RPrimitive(value)                 => Primitive(value)
-      case RString(value)                    => TString(value)
-      case RVarArgs(value)                   => Arguments(value.map(loop))
+      case RCaseClass(RType(name, _), parameters) => Compound(name, Arguments(parameters.map(loop)))
+      case RClass(RType(name, _), parameters)     => Compound(s"new $name", Arguments(parameters.map(loop)))
+      case RInfix(lhs, name, rhs)                 => Infix(loop(lhs), name, loop(rhs))
+      case RMethod(target, name, parameters)      => Method(loop(target), name, Arguments(parameters.map(loop)))
+      case RPrimitive(value)                      => Primitive(value)
+      case RString(value)                         => TString(value)
+      case RVarArgs(value)                        => Arguments(value.map(loop))
     }
 
     loop(reified)
@@ -220,8 +222,8 @@ object Reified extends Reify.Companion[Reified] {
 
   def escape(reified: Reified): Reified = {
     def loop(reified: Reified): Reified = reified match {
-      case RCaseClass(name, parameters)      => RCaseClass(RType(name), parameters.map(loop))
-      case RClass(name, parameters)          => RClass(RType(name), parameters.map(loop))
+      case RCaseClass(rtype, parameters)     => RCaseClass(rtype, parameters.map(loop))
+      case RClass(rtype, parameters)         => RClass(rtype, parameters.map(loop))
       case RInfix(lhs, name, rhs)            => RInfix(loop(lhs), name, loop(rhs))
       case RMethod(target, name, parameters) => RMethod(loop(target), name, parameters.map(loop))
       case RPrimitive(value)                 => RPrimitive(value)
@@ -236,8 +238,8 @@ object Reified extends Reify.Companion[Reified] {
     def loop(reified: Reified): Reified = pf.lift(reified) match {
       case Some(result) => result
       case None => reified match {
-        case RCaseClass(name, parameters)      => RCaseClass(RType(name), parameters.map(loop))
-        case RClass(name, parameters)          => RClass(RType(name), parameters.map(loop))
+        case RCaseClass(rtype, parameters)     => RCaseClass(rtype, parameters.map(loop))
+        case RClass(rtype, parameters)         => RClass(rtype, parameters.map(loop))
         case RInfix(lhs, name, rhs)            => RInfix(lhs.transform(pf), name, rhs.transform(pf))
         case RMethod(target, name, parameters) => RMethod(target.transform(pf), name, parameters.map(loop))
         case RPrimitive(value)                 => RPrimitive(value)
@@ -258,7 +260,7 @@ object Reified extends Reify.Companion[Reified] {
   val RLong:    Injector[Long, Reified]    = Injector.Long    andThen prim
   
   val RFile: Injector[File, Reified] = 
-    Injector.id[File].xmap[String](_.getPath)(path => Some(new File(path))) andThen RClass.injector[String]("File")
+    Injector.id[File].xmap[String](_.getPath)(path => Some(new File(path))) andThen RClass.injector[String](RType("File"))
   
   object RStrings {
     object FromItem {
@@ -310,7 +312,7 @@ object Reified extends Reify.Companion[Reified] {
       RCaseClass(RType(""), List(t._1, t._2))
       
     def unapply(reified: Reified): Option[(Reified, Reified)] = PartialFunction.condOpt(reified) {
-      case RCaseClass("", a :: b :: Nil) => (a, b)
+      case RCaseClass(RType("", _), a :: b :: Nil) => (a, b)
     }
   }
   
@@ -319,10 +321,10 @@ object Reified extends Reify.Companion[Reified] {
       apply((Reify.reify(abc._1), Reify.reify(abc._2), Reify.reify(abc._3)))
     
     def apply(t: (Reified, Reified, Reified)): Reified =
-      RCaseClass("", List(t._1, t._2, t._3))
+      RCaseClass(RType(""), List(t._1, t._2, t._3))
 
     def unapply(reified: Reified): Option[(Reified, Reified, Reified)] = PartialFunction.condOpt(reified) {
-      case RCaseClass("", a :: b :: c :: Nil) => (a, b, c)
+      case RCaseClass(RType("", _), a :: b :: c :: Nil) => (a, b, c)
     }
   }
   
@@ -335,8 +337,8 @@ object Reified extends Reify.Companion[Reified] {
     } 
     
     def unapply(reified: Reified): Option[Option[Reified]] = PartialFunction.condOpt(reified) {
-      case RPrimitive("None")          => None
-      case RCaseClass("Some", List(a)) => Some(a)
+      case RPrimitive("None")                    => None
+      case RCaseClass(RType("Some", _), List(a)) => Some(a)
     }
   }
 
@@ -350,8 +352,8 @@ object Reified extends Reify.Companion[Reified] {
     }
     
     def unapply(reified: Reified): Option[Either[Reified, Reified]] = PartialFunction.condOpt(reified) {
-      case RCaseClass("Left",  List(l)) => Left(l)
-      case RCaseClass("Right", List(r)) => Right(r)
+      case RCaseClass(RType("Left", _),  List(l)) => Left(l)
+      case RCaseClass(RType("Right", _), List(r)) => Right(r)
     }
   }
 
@@ -412,7 +414,7 @@ object Reified extends Reify.Companion[Reified] {
       RCaseClass(RType("List"), values)
       
     def unapply(value: Reified): Option[List[Reified]] = PartialFunction.condOpt(value) {
-      case RCaseClass("List", values) => values
+      case RCaseClass(RType("List", _), values) => values
     }
   }
 
@@ -422,7 +424,7 @@ object Reified extends Reify.Companion[Reified] {
     def apply(value: Set[Reified]): Reified = RCaseClass(RType("Set"), value.toList)
     
     def unapply(reified: Reified): Option[Set[Reified]] = PartialFunction.condOpt(reified) {
-      case RCaseClass("Set", parameters) => parameters.toSet
+      case RCaseClass(RType("Set", _), parameters) => parameters.toSet
     }
   }
 
@@ -435,71 +437,68 @@ object Reified extends Reify.Companion[Reified] {
     })
     
     def unapply(value: Reified): Option[Map[Reified, Reified]] = PartialFunction.condOpt(value) {
-      case RCaseClass("Map", RInfix.Many(infixes)) => Map(infixes.map(infix => infix.lhs -> infix.rhs): _*)
+      case RCaseClass(RType("Map", _), RInfix.Many(infixes)) => Map(infixes.map(infix => infix.lhs -> infix.rhs): _*)
     }
   }
 
   object RCaseClass extends HasParameters {
-    protected val baseInjector: Injector[(String, List[Reified]), Reified] = Injector.from[(String, List[Reified])].pf({
-      case (name, parameters) => RCaseClass(name, parameters): Reified
+    protected val baseInjector: Injector[(RType, List[Reified]), Reified] = Injector.from[(RType, List[Reified])].pf({
+      case (rtype, parameters) => RCaseClass(rtype, parameters): Reified
     }) {
-      case RCaseClass(name, parameters) => (name, parameters)
+      case RCaseClass(rtype, parameters) => (rtype, parameters)
     }
   }
 
-  case class RCaseClass(name: String, parameters: List[Reified]) extends Reified
+  case class RCaseClass(rtype: RType, parameters: List[Reified]) extends Reified
 
   object RClass extends HasParameters {
-    protected val baseInjector: Injector[(String, List[Reified]), Reified] = Injector.from[(String, List[Reified])].pf({
-      case (name, parameters) => RClass(name, parameters): Reified
+    protected val baseInjector: Injector[(RType, List[Reified]), Reified] = Injector.from[(RType, List[Reified])].pf({
+      case (rtype, parameters) => RClass(rtype, parameters): Reified
     }) {
-      case RClass(name, parameters) => (name, parameters)
+      case RClass(rtype, parameters) => (rtype, parameters)
     }
   }
   
-  case class RClass(name: String, parameters: List[Reified]) extends Reified
+  case class RClass(rtype: RType, parameters: List[Reified]) extends Reified
   
   trait HasParameters {
     def apply[A: Reify](rtype: RType, a: A): Reified =
-      create(rtype.name, List(Reify.reify(a)))
+      create(rtype, List(Reify.reify(a)))
 
     def apply[A: Reify, B: Reify](rtype: RType, a: A, b: B): Reified =
-      create(rtype.name, List(Reify.reify(a), Reify.reify(b)))
+      create(rtype, List(Reify.reify(a), Reify.reify(b)))
 
     def apply[A: Reify, B: Reify, C: Reify](rtype: RType, a: A, b: B, c: C): Reified =
-      create(rtype.name, List(Reify.reify(a), Reify.reify(b), Reify.reify(c)))
+      create(rtype, List(Reify.reify(a), Reify.reify(b), Reify.reify(c)))
 
     def apply[A: Reify](name: String, a: A): Reified =
-      create(name, List(Reify.reify(a)))
+      create(RType(name), List(Reify.reify(a)))
 
     def apply[A: Reify, B: Reify](name: String, a: A, b: B): Reified =
-      create(name, List(Reify.reify(a), Reify.reify(b)))
+      create(RType(name), List(Reify.reify(a), Reify.reify(b)))
 
     def apply[A: Reify, B: Reify, C: Reify](name: String, a: A, b: B, c: C): Reified =
-      create(name, List(Reify.reify(a), Reify.reify(b), Reify.reify(c)))
+      create(RType(name), List(Reify.reify(a), Reify.reify(b), Reify.reify(c)))
 
     def apply[A: Reify, B: Reify, C: Reify, D: Reify](name: String, a: A, b: B, c: C, d: D): Reified =
-      create(name, List(Reify.reify(a), Reify.reify(b), Reify.reify(c), Reify.reify(d)))
+      create(RType(name), List(Reify.reify(a), Reify.reify(b), Reify.reify(c), Reify.reify(d)))
 
-    def injector[A](name: String)(implicit A: Reify[A]): Injector[A, Reified] = 
-      (A :: Injector.Nil).withValue(name).andThen(baseInjector)
+    def injector[A](rtype: RType)(implicit A: Reify[A]): Injector[A, Reified] = 
+      (A :: Injector.Nil).withValue(rtype).andThen(baseInjector)
     
-    def injector[A, B](name: String)(implicit A: Reify[A], B: Reify[B]): Injector[(A, B), Reified] = 
-      (A :: B :: Injector.Nil).withValue(name).andThen(baseInjector)
+    def injector[A, B](rtype: RType)(implicit A: Reify[A], B: Reify[B]): Injector[(A, B), Reified] = 
+      (A :: B :: Injector.Nil).withValue(rtype).andThen(baseInjector)
     
     def apply(rtype: RType, parameters: Reified*): Reified =
-      create(rtype.name, parameters.toList)
-    
-    def apply(rtype: RType, parameters: List[Reified]): Reified =
-      create(rtype.name, parameters)
+      create(rtype, parameters.toList)
     
     def apply(name: String, parameters: Reified*): Reified =
-      create(name, parameters.toList)
+      create(RType(name), parameters.toList)
 
-    final protected def create(name: String, parameters: List[Reified]): Reified =
-      baseInjector.inject((name, parameters))
+    final protected def create(rtype: RType, parameters: List[Reified]): Reified =
+      baseInjector.inject((rtype, parameters))
 
-    protected def baseInjector: Injector[(String, List[Reified]), Reified]
+    protected def baseInjector: Injector[(RType, List[Reified]), Reified]
   }
   
   object RInfix {
