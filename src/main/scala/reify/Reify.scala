@@ -547,6 +547,13 @@ sealed trait Reify[A] extends Injector[A, Reified] {
 
   def rtype: RType
 
+  final def parse(toParse: String): Either[ParseError, A] = for {
+    token      <- Token.parseToken(toParse).left.map(ParseError.TokenParseError(toParse, _): ParseError)
+    camelCase   = token.camelCase
+    reified    <- Reified.parse(camelCase).toRight(ParseError.ReifiedParseError(toParse, token, camelCase))
+    dependency <- reflect(reified).toRight(ParseError.ReflectReifiedError(toParse, token, camelCase, reified, this))
+  } yield dependency
+  
   final def beforeReify(f: Endo[A]): Reify[A] = ReifyImplementations.BeforeAndAfter(this, f, identity)
   
   final def afterReflect(f: Endo[A]): Reify[A] = ReifyImplementations.BeforeAndAfter(this, identity, f)
