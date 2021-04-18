@@ -10,7 +10,7 @@ import reify.internal.prelude._
 import symmetric.{Extractor, Injector, Symmetric}
 
 
-sealed trait Reified extends Dynamic {
+sealed trait Reified extends Dynamic with Product with Serializable {
   final def namedIf(condition: Boolean, name: String): Reified =
     if (condition) named(name) else this
 
@@ -118,8 +118,8 @@ object Reified extends Reify.Companion[Reified] {
       case RList(list)                       => RCaseClass(RType("RList"), RRList(list))
       case RSet(set)                         => RCaseClass(RType("RSet"), RRSet(set))
       case RMap(map)                         => RCaseClass(RType("RMap"), RRMap(map))
-      case RClass(rtype, parameters)         => RCaseClass(RType("RClass"), RCaseClass("RType", RString(rtype.name)) :: RRList(parameters) :: Nil)
-      case RCaseClass(rtype, parameters)     => RCaseClass(RType("RCaseClass"), RCaseClass("RType", RString(rtype.name)) :: RRList(parameters) :: Nil)
+      case RClass(rtype, parameters)         => RCaseClass(RType("RClass"), Reify.reify(rtype) :: RRList(parameters) :: Nil)
+      case RCaseClass(rtype, parameters)     => RCaseClass(RType("RCaseClass"), Reify.reify(rtype) :: RRList(parameters) :: Nil)
       case RInfix(lhs, name, rhs)            => RCaseClass(RType("RInfix"), List(lhs, RString(name), rhs))
       case RMethod(target, name, parameters) => RCaseClass(RType("RMethod"), List(reify(target), RString(name), RRList(parameters)))
       case RVarArgs(args)                    => RCaseClass(RType("RVarArgs"), RRList(args))
@@ -136,8 +136,8 @@ object Reified extends Reify.Companion[Reified] {
       case RCaseClass(RType("RList", _), List(RRList(elements)))                                          => RList(elements)
       case RCaseClass(RType("RMap", _), List(RRMap(map)))                                                 => RMap(map)
       case RCaseClass(RType("RInfix", _), List(lhs, RString(name), rhs))                                  => RInfix(lhs, name, rhs)
-      case RCaseClass(RType("RClass", _), RCaseClass(RType("RType", _), List(RString(name))) :: RRList(parameters) :: Nil)                 => RClass(RType(name), parameters)
-      case RCaseClass(RType("RCaseClass", _), RCaseClass(RType("RType", _), List(RString(name))) :: RRList(parameters) :: Nil)                 => RCaseClass(RType(name), parameters)
+      case RCaseClass(RType("RClass", _), RType(rtype) :: RRList(parameters) :: Nil)                      => RClass(rtype, parameters)
+      case RCaseClass(RType("RCaseClass", Nil), RType(rtype) :: RRList(parameters) :: Nil)                => RCaseClass(rtype, parameters)
       case RCaseClass(RType("RMethod", _), Reified(target) :: RString(name) :: RRList(parameters) :: Nil) => RMethod(target, name, parameters)
       case RCaseClass(RType("RVarArgs", _), List(RRList(args)))                                           => RVarArgs(args)
     }

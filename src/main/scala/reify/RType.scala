@@ -1,5 +1,7 @@
 package reify
 
+import reify.Reified.{RCaseClass, RString}
+
 
 case class RType(name: String, args: List[RType]) {
   val typeName: String = args match {
@@ -10,7 +12,23 @@ case class RType(name: String, args: List[RType]) {
   final override def toString: String = typeName
 }
 
-object RType {
+object RType extends Reify.Companion[RType] {
+  implicit val reifyRType: Reify[RType] = Reify.defer[RType] {
+    Reify.apply[RType](
+      RType("RType"), 
+      {
+        case RType(name, args) => RCaseClass(RType("RType", Nil), RString(name) :: args.map(reifyRType.reify(_)))
+      }, 
+      {
+        case RCaseClass(RType("RType", Nil), RString(name) :: args) => {
+          val rtypes = args.flatMap(reifyRType.reflect(_))
+          
+          if (rtypes.length == args.length) Some(RType(name, rtypes)) else None  
+        } 
+      }
+    )
+  }
+  
   def of[A: Reify]: RType = Reify.of[A].rtype
   
   def create[A: Reify](name: String): RType = apply(name, of[A])
